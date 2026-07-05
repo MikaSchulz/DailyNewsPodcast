@@ -120,18 +120,15 @@ Wichtig:
 
 ### Option B: Cloud Routine (claude.ai — läuft unabhängig vom PC)
 
-Das ist die Option, die tatsächlich läuft, wenn der Rechner aus ist — sie läuft komplett auf claude.ai-Infrastruktur, nicht auf deinem Mac. Setup ist etwas aufwändiger, weil jeder Lauf in einer frischen, leeren Cloud-Sandbox startet (kein gespeicherter Zustand zwischen Läufen):
+Das ist die Option, die tatsächlich läuft, wenn der Rechner aus ist — sie läuft komplett auf claude.ai-Infrastruktur, nicht auf deinem Mac. Jeder Lauf startet in einer frischen, leeren Cloud-Sandbox (kein gespeicherter Zustand zwischen Läufen), deshalb übernimmt `main.py` selbst das Bootstrapping: `ensure_service_account_file()` schreibt den Key beim Start aus der Umgebungsvariable `GOOGLE_SERVICE_ACCOUNT_JSON` nach `credentials/service-account.json`, falls die Datei noch nicht existiert — lokal (Datei liegt schon da) passiert dabei nichts.
 
-1. **Projekt in ein privates GitHub-Repo pushen** (Credentials sind bereits per `.gitignore` ausgeschlossen, landen also nicht im Repo):
-   ```bash
-   git remote add origin git@github.com:<dein-user>/daily-podcast.git
-   git push -u origin main
-   ```
-2. In claude.ai unter **Environments** eine neue Environment anlegen, die an dieses Repo gekoppelt ist.
-3. In dieser Environment zwei **Secrets** setzen:
+Repo ist bereits gepusht ([github.com/MikaSchulz/DailyNewsPodcast](https://github.com/MikaSchulz/DailyNewsPodcast)), Credentials sind per `.gitignore` ausgeschlossen. Noch zu tun:
+
+1. In claude.ai unter **Environments** eine neue Environment anlegen, die an dieses Repo gekoppelt ist.
+2. In dieser Environment zwei **Secrets** setzen:
    - `ANTHROPIC_API_KEY` — dein Anthropic Key
    - `GOOGLE_SERVICE_ACCOUNT_JSON` — kompletter Inhalt von `credentials/service-account.json` als ein String
-4. Mir die `environment_id` nennen — ich lege dann per `RemoteTrigger` (Cron `30 6 * * *`) einen Trigger an, dessen Prompt bei jedem Lauf: Repo klont/pullt, `pip install -r requirements.txt` ausführt, `$GOOGLE_SERVICE_ACCOUNT_JSON` nach `credentials/service-account.json` schreibt, `python3 main.py` ausführt und das Ergebnis kurz zurückmeldet.
+3. Mir die `environment_id` nennen — ich lege dann per `RemoteTrigger` (Cron `30 6 * * *`) einen Trigger an, dessen Prompt bei jedem Lauf: Repo pullt, `pip install -r requirements.txt` ausführt, `python3 main.py` ausführt (Credential-Bootstrap passiert automatisch im Code) und das Ergebnis kurz zurückmeldet.
 
 Der einzige Nachteil ggü. lokal: jeder Lauf installiert Dependencies neu (ein paar Sekunden Mehraufwand), sonst identisches Verhalten — gleicher `main.py`-Code läuft lokal wie in der Cloud.
 

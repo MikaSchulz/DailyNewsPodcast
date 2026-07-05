@@ -9,12 +9,12 @@ schedule_time: "06:30"
 # keys under `feeds:` below. All overridable per run with --categories, see
 # README.md.
 categories:
-  welt: 1        # Tagesgeschehen
-  politik: 1
-  wirtschaft: 1
-  tech: 1
+  welt: 4        # Tagesgeschehen
+  politik: 2
+  wirtschaft: 3
+  tech: 2
   security: 1
-  sport: 0.4     # nur kurz
+  sport: 1
 
 # How many topics to pick in total, apportioned across categories by weight.
 # Overridable per run with --num-topics.

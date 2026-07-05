@@ -29,6 +29,23 @@ def load_config(path: str = "config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
+def ensure_service_account_file() -> None:
+    """Materializes the service account key from GOOGLE_SERVICE_ACCOUNT_JSON if needed.
+
+    Local runs already have the key file on disk (see README). Cloud runs
+    only get the key as a secret env var (no persistent filesystem between
+    runs), so write it out once at startup before the Google clients need it.
+    """
+    key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "credentials/service-account.json")
+    if not os.path.exists(key_path):
+        raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if raw_json:
+            os.makedirs(os.path.dirname(key_path) or ".", exist_ok=True)
+            with open(key_path, "w", encoding="utf-8") as f:
+                f.write(raw_json)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Daily news podcast generator")
     parser.add_argument("--config", default="config.yaml", help="Path to config file (default: config.yaml)")
@@ -58,6 +75,7 @@ def apply_overrides(config: dict, args: argparse.Namespace) -> dict:
 
 def main() -> int:
     load_dotenv()
+    ensure_service_account_file()
     args = parse_args()
     config = apply_overrides(load_config(args.config), args)
 
