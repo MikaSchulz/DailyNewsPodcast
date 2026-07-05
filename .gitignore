@@ -1,8 +1,10 @@
 .env
 credentials/*.json
 output/*.mp3
+output/*.txt
 __pycache__/
 *.pyc
 .venv/
 venv/
+.claude/
 *.opml

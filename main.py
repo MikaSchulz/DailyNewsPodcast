@@ -19,6 +19,7 @@ See README.md before wiring either mode up to cron / a Routine.
 """
 
 import argparse
+import base64
 import json
 import logging
 import os
@@ -43,39 +44,41 @@ def load_config(path: str = "config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
-def ensure_service_account_file() -> None:
-    """Materializes the service account key from GOOGLE_SERVICE_ACCOUNT_JSON if needed.
+def _materialize_from_b64(path: str, env_var: str) -> None:
+    """Writes `path` from the base64-encoded content of `env_var`, unless `path` already exists.
 
-    Local runs already have the key file on disk (see README). Cloud runs
-    only get the key as a secret env var (no persistent filesystem between
-    runs), so write it out once at startup before the Google clients need it.
+    Cloud environments here have no secrets store, only a plaintext .env-format
+    "Environment variables" field — base64 avoids that field mangling quotes/
+    newlines inside our JSON credential blobs. Local runs already have the
+    real file on disk (see README) and never hit this.
     """
+    if os.path.exists(path):
+        return
+    raw_b64 = os.environ.get(env_var)
+    if not raw_b64:
+        return
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(base64.b64decode(raw_b64))
+
+
+def ensure_service_account_file() -> None:
+    """Materializes the service account key from GOOGLE_SERVICE_ACCOUNT_JSON_B64 if needed."""
     key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "credentials/service-account.json")
-    if not os.path.exists(key_path):
-        raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-        if raw_json:
-            os.makedirs(os.path.dirname(key_path) or ".", exist_ok=True)
-            with open(key_path, "w", encoding="utf-8") as f:
-                f.write(raw_json)
+    _materialize_from_b64(key_path, "GOOGLE_SERVICE_ACCOUNT_JSON_B64")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
 
 
 def ensure_oauth_token_file() -> None:
-    """Materializes the Drive OAuth token from GOOGLE_OAUTH_TOKEN_JSON if needed.
+    """Materializes the Drive OAuth token from GOOGLE_OAUTH_TOKEN_JSON_B64 if needed.
 
-    Mirrors ensure_service_account_file(): local runs already did the
-    one-time interactive browser login and have the token file on disk.
-    Cloud runs get that token's content as a secret env var instead (no
-    persistent filesystem), so write it out once at startup — it's then
-    refreshed non-interactively by drive_uploader, no browser needed.
+    Local runs already did the one-time interactive browser login and have
+    the token file on disk. Cloud runs get that token's content as a base64
+    env var instead (no persistent filesystem) — it's then refreshed
+    non-interactively by drive_uploader, no browser needed.
     """
     token_path = os.environ.get("GOOGLE_OAUTH_TOKEN", "credentials/token.json")
-    if not os.path.exists(token_path):
-        raw_json = os.environ.get("GOOGLE_OAUTH_TOKEN_JSON")
-        if raw_json:
-            os.makedirs(os.path.dirname(token_path) or ".", exist_ok=True)
-            with open(token_path, "w", encoding="utf-8") as f:
-                f.write(raw_json)
+    _materialize_from_b64(token_path, "GOOGLE_OAUTH_TOKEN_JSON_B64")
     os.environ["GOOGLE_OAUTH_TOKEN"] = token_path
 
 
