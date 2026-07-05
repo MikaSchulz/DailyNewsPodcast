@@ -39,8 +39,9 @@ tts:
 
 drive:
   # ID of the target Drive folder (the long string in the folder's URL,
-  # after .../folders/). Must be shared with the service account as Editor.
-  folder_id: "YOUR_GOOGLE_DRIVE_FOLDER_ID"
+  # after .../folders/). Must be a folder your own (OAuth) Google account owns
+  # or can see — Drive upload runs as you, not as the service account.
+  folder_id: "1TulGllz85C6TKylSpcqthypUqT1alc7M"
 
 output_dir: "output"
 
