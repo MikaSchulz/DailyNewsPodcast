@@ -4,20 +4,30 @@
 # actual trigger lives in cron/Task Scheduler, see README.md).
 schedule_time: "06:30"
 
-# Which feed categories to pull from (must match keys under `feeds:` below).
+# Category -> weight. Higher weight = proportionally more topics picked from
+# that category. Weight <= 0 (or omitted) excludes the category. Must match
+# keys under `feeds:` below. All overridable per run with --categories, see
+# README.md.
 categories:
-  - politik
-  - wirtschaft
-  - tech
-  - welt
+  welt: 1        # Tagesgeschehen
+  politik: 1
+  wirtschaft: 1
+  tech: 1
+  security: 1
+  sport: 0.4     # nur kurz
 
-# How many topics to pick across all selected categories.
-num_topics: 6
+# How many topics to pick in total, apportioned across categories by weight.
+# Overridable per run with --num-topics.
+num_topics: 18
 
-# Target podcast length. `target_chars` drives the script-writer prompt
-# directly; ~550-600 chars per spoken minute at normal pace.
-podcast_length_minutes: 10
-target_chars: 5500
+# Target podcast length in minutes. Drives the script-writer's target
+# character count (length * chars_per_minute). Overridable per run with
+# --minutes.
+podcast_length_minutes: 30
+
+# Speaking pace used to derive the target character count from the length
+# above. ~550-600 chars/minute is normal pace for German TTS voices.
+chars_per_minute: 570
 
 anthropic:
   model: "claude-sonnet-5"
@@ -29,20 +39,52 @@ tts:
 
 drive:
   # ID of the target Drive folder (the long string in the folder's URL,
-  # after .../folders/). Must be a folder your OAuth account can see.
+  # after .../folders/). Must be shared with the service account as Editor.
   folder_id: "YOUR_GOOGLE_DRIVE_FOLDER_ID"
 
 output_dir: "output"
 
-# RSS feeds per category. Free, no API key needed. Add/remove as you like.
+# RSS feeds per category. Free, no API key needed. All URLs below are
+# live-tested and working. Comment out / delete sources you don't want;
+# add more the same way. More sources per category just means a bigger
+# pool to pick from, not more picked topics (that's num_topics + weight).
 feeds:
   politik:
-    - https://www.tagesschau.de/xml/rss2/
+    - https://www.tagesschau.de/inland/index~rss2.xml
+    - https://www.spiegel.de/politik/index.rss
+    - https://newsfeed.zeit.de/politik/index
+    - https://rss.sueddeutsche.de/rss/Politik
+    - https://www.faz.net/rss/aktuell/politik/
+    - http://netzpolitik.org/feed/          # digital policy/rights, German
   wirtschaft:
     - https://www.tagesschau.de/wirtschaft/index~rss2.xml
+    - https://www.spiegel.de/wirtschaft/index.rss
+    - https://rss.sueddeutsche.de/rss/Wirtschaft
+    - https://www.wiwo.de/contentexport/feed/rss/schlagzeilen
+    - https://www.handelsblatt.com/contentexport/feed/schlagzeilen
+    - http://feeds2.feedburner.com/businessinsider   # English, international angle
+    - http://fortune.com/feed/                       # English, international angle
   tech:
     - https://www.heise.de/rss/heise-atom.xml
+    - https://rss.golem.de/rss.php?feed=RSS2.0
+    - https://t3n.de/rss.xml
+    - https://www.spiegel.de/netzwelt/index.rss
+    - https://techcrunch.com/feed/           # English
+    - https://www.theverge.com/rss/index.xml # English
+    - http://feeds.wired.com/wired/index     # English
   welt:
     - https://www.tagesschau.de/ausland/index~rss2.xml
+    - https://www.spiegel.de/ausland/index.rss
   sport:
     - https://www.tagesschau.de/sport/index~rss2.xml
+    - https://www.spiegel.de/sport/index.rss
+    - https://newsfeed.kicker.de/news/aktuell
+  # Off by default (see categories: above) — set a weight > 0 to include.
+  security:
+    - https://krebsonsecurity.com/feed/
+    - http://thehackernews.com/feeds/posts/default
+    - https://www.ccc.de/de/rss/updates.rdf   # Chaos Computer Club, German
+    - http://www.schneier.com/blog/index.rdf
+    - http://www.theregister.co.uk/security/headlines.atom
+    - https://www.wired.com/feed/security/rss
+    - https://therecord.media/feed/

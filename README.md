@@ -68,9 +68,19 @@ GOOGLE_APPLICATION_CREDENTIALS=credentials/service-account.json
 ## 5. `config.yaml` anpassen
 
 - `drive.folder_id`: Ordner in Google Drive anlegen, ID aus der URL kopieren (`.../folders/<ID_HIER>`)
-- `categories` / `feeds`: RSS-Feeds nach Bedarf anpassen oder ergänzen
-- `num_topics`, `podcast_length_minutes`, `target_chars`: Podcast-Länge skalieren (z. B. für 30 Minuten `target_chars` auf ~16000 setzen und `num_topics` erhöhen)
+- `feeds`: RSS-Feeds pro Kategorie nach Bedarf anpassen oder ergänzen
+- `categories`: Kategorie → Gewicht. Höheres Gewicht = proportional mehr Themen aus dieser Kategorie. Gewicht `0`/weglassen = Kategorie ausgeschlossen. Beispiel: `politik: 2, tech: 1` → Politik bekommt doppelt so viele Slots wie Tech.
+- `num_topics`: Gesamtzahl Themen, wird gemäß der Gewichte auf die Kategorien verteilt
+- `podcast_length_minutes` / `chars_per_minute`: steuern zusammen die Ziel-Zeichenzahl fürs Skript (`minutes * chars_per_minute`) — für 30 Minuten einfach `podcast_length_minutes: 30` setzen, kein separates Zeichen-Feld mehr nötig
 - `tts.voice_name`: andere Stimme wählen, Liste unter [cloud.google.com/text-to-speech/docs/voices](https://cloud.google.com/text-to-speech/docs/voices)
+
+### Pro Lauf überschreiben (ohne `config.yaml` zu ändern)
+
+```bash
+python3 main.py --minutes 20 --num-topics 8 --categories "politik:2,tech:2,wirtschaft:1"
+```
+
+Alle drei Flags sind optional und überschreiben nur für diesen einen Lauf — nützlich für spontane Läufe oder unterschiedliche Werte an Wochentagen/Wochenende (z. B. in der Routine bzw. im Cron-Aufruf verschiedene Argumente je nach Wochentag übergeben).
 
 ## 6. Erster manueller Test
 
@@ -157,6 +167,6 @@ Hinweis: `logs/` Ordner vorher anlegen (`mkdir logs`), sonst schlägt die Log-Um
 - Anthropic API: abhängig vom Modell, Kosten pro Aufruf minimal (ein Request/Tag, wenige Tausend Tokens).
 - Google Drive: kein zusätzlicher Kostenpunkt, nutzt dein bestehendes Speicherkontingent.
 
-## 9. Podcast-Länge skalieren
+## 9. Länge, Themen und Gewichtung ändern
 
-`config.yaml` → `target_chars` steuert direkt, wie lang Claude den Text schreibt (~550–600 Zeichen pro Sprechminute). Für 30 Minuten z. B. `target_chars: 16000` und `num_topics` entsprechend erhöhen, damit genug Stoff für die Länge da ist.
+Siehe Abschnitt 5 — steuerbar dauerhaft über `config.yaml` (`podcast_length_minutes`, `num_topics`, `categories`-Gewichte) oder einmalig per CLI-Flag (`--minutes`, `--num-topics`, `--categories`), ohne die Datei anzufassen.
