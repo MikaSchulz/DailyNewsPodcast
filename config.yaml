@@ -1,0 +1,48 @@
+# Daily podcast config. Copy defaults are fine to start; tune later.
+
+# When the cron / Task Scheduler job should fire (informational — the
+# actual trigger lives in cron/Task Scheduler, see README.md).
+schedule_time: "06:30"
+
+# Which feed categories to pull from (must match keys under `feeds:` below).
+categories:
+  - politik
+  - wirtschaft
+  - tech
+  - welt
+
+# How many topics to pick across all selected categories.
+num_topics: 6
+
+# Target podcast length. `target_chars` drives the script-writer prompt
+# directly; ~550-600 chars per spoken minute at normal pace.
+podcast_length_minutes: 10
+target_chars: 5500
+
+anthropic:
+  model: "claude-sonnet-5"
+
+tts:
+  language_code: "de-DE"
+  voice_name: "de-DE-Chirp3-HD-Achernar"
+  speaking_rate: 1.0
+
+drive:
+  # ID of the target Drive folder (the long string in the folder's URL,
+  # after .../folders/). Must be a folder your OAuth account can see.
+  folder_id: "YOUR_GOOGLE_DRIVE_FOLDER_ID"
+
+output_dir: "output"
+
+# RSS feeds per category. Free, no API key needed. Add/remove as you like.
+feeds:
+  politik:
+    - https://www.tagesschau.de/xml/rss2/
+  wirtschaft:
+    - https://www.tagesschau.de/wirtschaft/index~rss2.xml
+  tech:
+    - https://www.heise.de/rss/heise-atom.xml
+  welt:
+    - https://www.tagesschau.de/ausland/index~rss2.xml
+  sport:
+    - https://www.tagesschau.de/sport/index~rss2.xml
