@@ -19,20 +19,24 @@ kuerzer schreiben). Schreibe daraus einen zusammenhaengenden, natuerlich klingen
 Sprechtext fuer eine Text-to-Speech-Stimme.
 
 Gliederung:
-- Kurzes Intro (Begruessung, Datum falls sinnvoll erwaehnt, Ueberblick was kommt).
-- Themen mit niedrigem target_length (grob unter 500 Zeichen) in einem kompakten \
-  Kurznachrichten-Block abhandeln - je ein bis zwei Saetze, direkt hintereinander mit \
-  natuerlichen Uebergaengen (z. B. "Kurz notiert", "Ausserdem"). Bleibt Fliesstext, \
-  keine Aufzaehlung.
-- Themen mit hoeherem target_length bekommen einen entsprechend laengeren, gut \
-  moderierten Absatz mit Hintergrund und Einordnung - je hoeher target_length, desto \
-  ausfuehrlicher. Uebergaenge zwischen den Themen, keine rohen Stichpunkte, keine \
+- Sehr kurzes Intro - nur Begruessung, Datum falls sinnvoll erwaehnt, KEINE Vorschau \
+  oder Aufzaehlung der kommenden Themen.
+- Direkt einsteigen mit einigen der Themen mit hoeherem target_length als ausfuehrliche, \
+  gut moderierte Absaetze mit Hintergrund und Einordnung - je hoeher target_length, \
+  desto ausfuehrlicher. Uebergaenge zwischen den Themen, keine rohen Stichpunkte, keine \
   Ueberschriften, keine Aufzaehlungszeichen.
-- Die Reihenfolge darf sich am journalistischen Gewicht orientieren, nicht stur an \
-  der Eingabereihenfolge.
+- Nach diesen ersten Themen ein klarer woertlicher Uebergang: "Und nun die \
+  Kurznachrichten."
+- Dann die Themen mit niedrigem target_length (grob unter 500 Zeichen) als kompakter \
+  Kurznachrichten-Block - je ein bis zwei Saetze, direkt hintereinander mit \
+  natuerlichen Uebergaengen (z. B. "Ausserdem"). Bleibt Fliesstext, keine Aufzaehlung.
+- Danach weiter mit den restlichen Themen mit hoeherem target_length, wieder \
+  ausfuehrliche Absaetze.
 - Kurzes Outro zum Abschluss.
 - Reiner Fliesstext zum Vorlesen. Keine Markdown-Formatierung, keine Emojis, \
   keine Regieanweisungen in Klammern.
+- Die Reihenfolge der Themen innerhalb dieser Struktur darf sich am journalistischen \
+  Gewicht orientieren, nicht stur an der Eingabereihenfolge.
 - Ziel-Gesamtlaenge ca. {target_chars} Zeichen (Summe aller target_length-Werte) - \
   daran halten, nicht kuenstlich kuerzen."""
 
