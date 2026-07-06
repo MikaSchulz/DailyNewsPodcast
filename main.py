@@ -8,18 +8,18 @@ Three ways to run this:
    Fetches topics, writes the script via the Anthropic API, synthesizes
    MP3, uploads to Drive. Good for plain OS cron with no agent involved.
 
-2. Agent-orchestrated, no Anthropic API key needed (used by the Claude
-   Code / cloud Routine — the agent running the routine already IS Claude,
-   so it writes the script itself instead of paying for a second API call):
+2. Agent-orchestrated, no Anthropic API key needed (used by the GitHub
+   Actions workflow, see .github/workflows/daily-podcast.yml — Claude
+   Code CLI writes the script itself instead of paying for a second API
+   call):
    python3 main.py --fetch-topics-only            # prints topics as JSON
-   # agent writes the German script from that JSON, saves it to a file
+   # `claude -p` writes the German script from that JSON to a file
    python3 main.py --script-file output/script.txt  # TTS + upload only
 
-See README.md before wiring either mode up to cron / a Routine.
+See README.md before wiring either mode up to cron / a workflow.
 """
 
 import argparse
-import base64
 import json
 import logging
 import os
@@ -42,44 +42,6 @@ logger = logging.getLogger("podcast")
 def load_config(path: str = "config.yaml") -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
-
-
-def _materialize_from_b64(path: str, env_var: str) -> None:
-    """Writes `path` from the base64-encoded content of `env_var`, unless `path` already exists.
-
-    Cloud environments here have no secrets store, only a plaintext .env-format
-    "Environment variables" field — base64 avoids that field mangling quotes/
-    newlines inside our JSON credential blobs. Local runs already have the
-    real file on disk (see README) and never hit this.
-    """
-    if os.path.exists(path):
-        return
-    raw_b64 = os.environ.get(env_var)
-    if not raw_b64:
-        return
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "wb") as f:
-        f.write(base64.b64decode(raw_b64))
-
-
-def ensure_service_account_file() -> None:
-    """Materializes the service account key from GOOGLE_SERVICE_ACCOUNT_JSON_B64 if needed."""
-    key_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "credentials/service-account.json")
-    _materialize_from_b64(key_path, "GOOGLE_SERVICE_ACCOUNT_JSON_B64")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_path
-
-
-def ensure_oauth_token_file() -> None:
-    """Materializes the Drive OAuth token from GOOGLE_OAUTH_TOKEN_JSON_B64 if needed.
-
-    Local runs already did the one-time interactive browser login and have
-    the token file on disk. Cloud runs get that token's content as a base64
-    env var instead (no persistent filesystem) — it's then refreshed
-    non-interactively by drive_uploader, no browser needed.
-    """
-    token_path = os.environ.get("GOOGLE_OAUTH_TOKEN", "credentials/token.json")
-    _materialize_from_b64(token_path, "GOOGLE_OAUTH_TOKEN_JSON_B64")
-    os.environ["GOOGLE_OAUTH_TOKEN"] = token_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -188,8 +150,6 @@ def run_full_auto(config: dict) -> int:
 
 def main() -> int:
     load_dotenv()
-    ensure_service_account_file()
-    ensure_oauth_token_file()
     args = parse_args()
     config = apply_overrides(load_config(args.config), args)
 
