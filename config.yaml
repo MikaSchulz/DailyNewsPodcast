@@ -18,12 +18,12 @@ categories:
 
 # How many topics to pick in total, apportioned across categories by weight.
 # Overridable per run with --num-topics.
-num_topics: 24
+num_topics: 18
 
 # Target podcast length in minutes. Drives the script-writer's target
 # character count (length * chars_per_minute). Overridable per run with
 # --minutes.
-podcast_length_minutes: 40
+podcast_length_minutes: 30
 
 # Speaking pace used to derive the target character count from the length
 # above. Measured directly against tts.voice_name below at speaking_rate 1.0
