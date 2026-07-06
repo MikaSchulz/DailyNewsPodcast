@@ -10,7 +10,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       GOOGLE_APPLICATION_CREDENTIALS: credentials/service-account.json
       GOOGLE_OAUTH_TOKEN: credentials/token.json
