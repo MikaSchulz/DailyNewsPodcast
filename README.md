@@ -5,12 +5,14 @@ Erstellt automatisch einen News-Podcast: Themen aus RSS-Feeds holen, zu einem Sp
 ## Zwei Betriebsarten
 
 - **Voll-automatisch** (`python3 main.py`, keine Flags): braucht einen **Anthropic API Key** (separates, bezahltes Konto auf console.anthropic.com — **nicht** dasselbe wie ein Claude Pro/Max-Abo, die beiden Systeme sind komplett getrennt). Praktisch für reines OS-Cron ganz ohne Claude-Agent.
-- **Agent-gesteuert, ohne API-Key** (`--fetch-topics-only` dann `--script-file`): läuft über einen Claude-Agenten (die lokale oder Cloud-Routine, siehe Abschnitt 7) — der Agent schreibt den Sprechtext selbst (läuft ja sowieso schon unter deinem Claude-Abo), Python macht nur noch RSS-Fetch, TTS und Drive-Upload. Kein zweites, bezahltes API-Konto nötig. **Das ist der Standardweg für beide Routinen unten.**
+- **Agent-gesteuert, ohne API-Key** (`--fetch-topics-only` dann `--script-file`): läuft über die Claude Code CLI (`claude -p`, siehe Abschnitt 7, GitHub Actions) — schreibt den Sprechtext selbst (läuft über dein Claude-Abo), Python macht nur noch RSS-Fetch, TTS und Drive-Upload. Kein zweites, bezahltes API-Konto nötig. **Das ist der Standardweg für die Automatisierung unten.**
 
 ## Projektstruktur
 
 ```
 DailyPodcast/
+├── .github/workflows/
+│   └── daily-podcast.yml      # GitHub Actions: täglicher Trigger, siehe Abschnitt 7
 ├── main.py                    # Orchestriert alles, 3 Modi (siehe oben)
 ├── config.yaml                # Themen, Länge, Feeds, Drive-Ordner, TTS-Stimme
 ├── .env                        # API-Keys / Credential-Pfade (nicht einchecken)
@@ -57,11 +59,11 @@ TTS ist eine stateless API ohne Speicher/Kontingent-Bezug — dafür reicht ein 
 3. **Anmeldedaten → Anmeldedaten erstellen → OAuth-Client-ID**, Anwendungstyp **Desktop-App**
 4. JSON herunterladen, ablegen unter: `credentials/oauth_client_secret.json`
 
-Der eigentliche Login passiert automatisch beim ersten Testlauf (Abschnitt 6) — Browserfenster öffnet sich, einmal einloggen/bestätigen, danach läuft alles über einen automatisch erneuerten Token (`credentials/token.json`), auch headless in der Cloud-Routine (siehe Abschnitt 7).
+Der eigentliche Login passiert automatisch beim ersten Testlauf (Abschnitt 6) — Browserfenster öffnet sich, einmal einloggen/bestätigen, danach läuft alles über einen automatisch erneuerten Token (`credentials/token.json`), auch headless in GitHub Actions (siehe Abschnitt 7).
 
 ## 3. Anthropic API Key — nur für Voll-auto-Modus
 
-Überspringen, wenn du die Routinen aus Abschnitt 7 nutzt (Standardweg, kein Key nötig). Nur relevant für `python3 main.py` ganz ohne Agenten:
+Überspringen, wenn du GitHub Actions aus Abschnitt 7 nutzt (Standardweg, kein Key nötig). Nur relevant für `python3 main.py` ganz ohne Agenten:
 
 1. Key erstellen unter [console.anthropic.com](https://console.anthropic.com) (separates, bezahltes Konto — läuft nicht über dein Claude Pro/Max-Abo)
 2. In `.env` eintragen (siehe unten)
@@ -96,7 +98,7 @@ GOOGLE_OAUTH_TOKEN=credentials/token.json
 python3 main.py --minutes 20 --num-topics 8 --categories "politik:2,tech:2,wirtschaft:1"
 ```
 
-Alle drei Flags sind optional und überschreiben nur für diesen einen Lauf — nützlich für spontane Läufe oder unterschiedliche Werte an Wochentagen/Wochenende (z. B. in der Routine bzw. im Cron-Aufruf verschiedene Argumente je nach Wochentag übergeben).
+Alle drei Flags sind optional und überschreiben nur für diesen einen Lauf — nützlich für spontane Läufe oder unterschiedliche Werte an Wochentagen/Wochenende (z. B. im Workflow bzw. im Cron-Aufruf verschiedene Argumente je nach Wochentag übergeben).
 
 ## 6. Erster manueller Test
 
@@ -121,7 +123,7 @@ Wenn irgendwo ein Fehler auftritt, bricht das Script sauber mit einer Fehlermeld
 
 Nach erfolgreichem Test: Handy öffnen, Google Drive App → Datei sollte im Ordner erscheinen (ggf. kurz auf Sync warten).
 
-Danach den vollen RSS→Text→TTS→Upload-Ablauf einmal testen (braucht `ANTHROPIC_API_KEY`, siehe Abschnitt 3 — überspringbar, wenn du direkt mit den Routinen aus Abschnitt 7 arbeitest):
+Danach den vollen RSS→Text→TTS→Upload-Ablauf einmal testen (braucht `ANTHROPIC_API_KEY`, siehe Abschnitt 3 — überspringbar, wenn du direkt mit GitHub Actions aus Abschnitt 7 arbeitest):
 
 ```bash
 python3 main.py
@@ -129,34 +131,36 @@ python3 main.py
 
 ## 7. Automatisierung
 
-Drei Optionen, je nachdem ob der Rechner beim Trigger-Zeitpunkt laufen soll oder nicht.
+Primärer Weg: **GitHub Actions** — läuft komplett auf GitHub-Infrastruktur, unabhängig vom eigenen Rechner, alles als Code versioniert im Repo (`.github/workflows/daily-podcast.yml`), kein claude.ai-UI-Setup nötig.
 
-Beide Routinen unten nutzen den **agent-gesteuerten Modus** (kein `ANTHROPIC_API_KEY` nötig): der Trigger-Prompt lässt `main.py --fetch-topics-only` laufen, der Agent schreibt selbst den deutschen Sprechtext aus dem JSON (Intro, ein Absatz pro Thema, Outro, Ziel-Zeichenzahl aus `config.yaml` beachten), speichert ihn in eine Datei, dann läuft `main.py --script-file <datei>` für TTS + Upload.
+### Option A: GitHub Actions (empfohlen, läuft unabhängig vom PC)
 
-### Option A: Claude Code Routine (lokal — braucht offene App, aber nicht zwingend hochgefahrenen PC über Nacht)
+Der Workflow nutzt den **agent-gesteuerten Modus** (kein `ANTHROPIC_API_KEY` nötig): `main.py --fetch-topics-only` liefert die Themen als JSON, `claude -p` (Claude Code CLI, headless) schreibt daraus den deutschen Sprechtext, `main.py --script-file <datei>` erledigt TTS + Upload.
 
-Läuft über eine **Claude Code Scheduled Task** namens `daily-news-podcast` (Cron `30 6 * * *`, lokale Zeitzone), liegt unter `~/.claude/scheduled-tasks/daily-news-podcast/SKILL.md`.
+**Einmaliges Setup:**
 
-Wichtig:
-- Läuft nur, während die Claude-App offen ist. Ist sie beim Trigger-Zeitpunkt geschlossen, läuft die Aufgabe beim nächsten Start nach — **läuft also nicht, wenn der PC aus ist.**
-- Vor dem ersten scharfen Lauf: einmal manuell **"Run now"** in der Sidebar unter "Scheduled" ausführen, damit Tool-Freigaben (z. B. Bash) einmalig bestätigt werden.
-- Zeitplan/Prompt ändern: in der Sidebar unter "Scheduled" oder per `update_scheduled_task`.
+1. **Claude-Code-CI-Token erzeugen** (lokal, einmalig — authentifiziert über dein Pro/Max-Abo, kein separates API-Konto):
+   ```bash
+   claude setup-token
+   ```
+   Erzeugt einen 1 Jahr gültigen OAuth-Token, wird nur angezeigt, nicht gespeichert — direkt kopieren.
 
-### Option B: Cloud Routine (claude.ai — läuft unabhängig vom PC)
+   > ⚠️ **Hinweis:** Automatisierte, ungeleitete Cron-Nutzung eines Pro/Max-Abos (statt interaktiver Entwicklung) ist in Anthropics Nutzungsbedingungen nicht explizit abgedeckt. `claude setup-token` ist ein offizielles, dokumentiertes CLI-Feature, und die tägliche Nutzung hier ist minimal (ein Aufruf/Tag) — Risiko wird als gering eingeschätzt, ist aber nicht offiziell von Anthropic für diesen Zweck bestätigt. Alternative bei Bedenken: `ANTHROPIC_API_KEY` (Abschnitt 3) statt `CLAUDE_CODE_OAUTH_TOKEN` im Workflow verwenden — dann echtes API-Billing, aber ToS-sauber.
 
-Das ist die Option, die tatsächlich läuft, wenn der Rechner aus ist — sie läuft komplett auf claude.ai-Infrastruktur, nicht auf deinem Mac. Jeder Lauf startet in einer frischen, leeren Cloud-Sandbox (kein gespeicherter Zustand zwischen Läufen), deshalb übernimmt `main.py` selbst das Bootstrapping: `ensure_service_account_file()` und `ensure_oauth_token_file()` schreiben die Keys beim Start aus Umgebungsvariablen, falls die Dateien noch nicht existieren — lokal (Dateien liegen schon da) passiert dabei nichts.
-
-Repo ist bereits gepusht ([github.com/MikaSchulz/DailyNewsPodcast](https://github.com/MikaSchulz/DailyNewsPodcast)), Credentials sind per `.gitignore` ausgeschlossen. Noch zu tun:
-
-1. In claude.ai unter **Environments** eine neue Environment anlegen, die an dieses Repo gekoppelt ist.
-2. In dieser Environment zwei **Secrets** setzen (kein `ANTHROPIC_API_KEY` nötig, siehe oben):
+2. **Repo-Secrets setzen** (GitHub → Repo → Settings → Secrets and variables → Actions → New repository secret):
+   - `CLAUDE_CODE_OAUTH_TOKEN` — Token aus Schritt 1
    - `GOOGLE_SERVICE_ACCOUNT_JSON` — kompletter Inhalt von `credentials/service-account.json`
-   - `GOOGLE_OAUTH_TOKEN_JSON` — kompletter Inhalt von `credentials/token.json` (existiert erst nach dem ersten lokalen Testlauf aus Abschnitt 6 — der einmalige Browser-Login lässt sich nicht headless in der Cloud nachholen)
-3. Mir die `environment_id` nennen — ich lege dann per `RemoteTrigger` (Cron `30 6 * * *`) einen Trigger an.
+   - `GOOGLE_OAUTH_TOKEN_JSON` — kompletter Inhalt von `credentials/token.json` (existiert erst nach dem lokalen Testlauf aus Abschnitt 6 — der einmalige Browser-Login lässt sich headless nicht nachholen)
 
-Der einzige Nachteil ggü. lokal: jeder Lauf installiert Dependencies neu (ein paar Sekunden Mehraufwand), sonst identisches Verhalten.
+3. **Workflow aktivieren**: passiert automatisch beim Pushen von `.github/workflows/daily-podcast.yml` — GitHub Actions ist für öffentliche Repos kostenlos.
 
-### Option C: OS-Cron (klassisch, ohne Claude-App)
+4. **Testen**: Repo → Actions → "Daily Podcast" → **Run workflow** (manueller Trigger, `workflow_dispatch`). Läuft danach automatisch täglich per Cron.
+
+**Für Forks:** Repo forken, die 3 Secrets im eigenen Fork eintragen, `drive.folder_id` in `config.yaml` auf den eigenen Ordner anpassen — fertig, kein claude.ai-Account-Setup nötig.
+
+Cron steht auf `30 4 * * *` (UTC) = 06:30 CEST im Sommer / 05:30 CET im Winter — GitHub Actions kennt keine Zeitzonen, driftet also um eine Stunde je nach Jahreszeit. Bei Bedarf in `.github/workflows/daily-podcast.yml` anpassen.
+
+### Option B: OS-Cron (klassisch, lokal)
 
 #### macOS / Linux: cron
 
@@ -185,8 +189,9 @@ Hinweis: `logs/` Ordner vorher anlegen (`mkdir logs`), sonst schlägt die Log-Um
 ## 8. Kosten
 
 - Google Cloud TTS: 1 Mio. Zeichen/Monat kostenlos (WaveNet/Standard-Stimmen; Chirp3-HD-Stimmen haben ein eigenes kostenloses Kontingent, siehe [Preisseite](https://cloud.google.com/text-to-speech/pricing)). Bei 30 Min/Tag (~17.000 Zeichen) = ~510.000 Zeichen/Monat → noch im kostenlosen Rahmen, aber nicht mehr weit davon entfernt.
-- Anthropic API: **nur im Voll-auto-Modus relevant** (Abschnitt 3) — im agent-gesteuerten Modus (Standardweg, beide Routinen) entfällt das komplett, Skript-Schreiben läuft über dein bestehendes Claude-Abo.
+- Anthropic API: **nur im Voll-auto-Modus relevant** (Abschnitt 3) — im agent-gesteuerten Modus (Standardweg über GitHub Actions) entfällt das komplett, Skript-Schreiben läuft über dein bestehendes Claude-Abo.
 - Google Drive: kein zusätzlicher Kostenpunkt, nutzt dein bestehendes Speicherkontingent.
+- GitHub Actions: kostenlos für öffentliche Repos; bei privaten Repos ein paar Minuten/Tag aus dem monatlichen Freikontingent (2.000 Min/Monat auf dem kostenlosen Plan).
 
 ## 9. Länge, Themen und Gewichtung ändern
 

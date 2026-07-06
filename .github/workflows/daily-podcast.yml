@@ -1,0 +1,55 @@
+name: Daily Podcast
+
+on:
+  schedule:
+    # 04:30 UTC = 06:30 CEST (summer) / 05:30 CET (winter). GitHub Actions
+    # cron is always UTC, so the local time drifts by an hour across DST.
+    - cron: "30 4 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Claude Code CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Write Google credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_OAUTH_TOKEN_JSON: ${{ secrets.GOOGLE_OAUTH_TOKEN_JSON }}
+        run: |
+          mkdir -p credentials
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service-account.json
+          printf '%s' "$GOOGLE_OAUTH_TOKEN_JSON" > credentials/token.json
+
+      - name: Fetch topics
+        run: python3 main.py --fetch-topics-only > /tmp/topics.json
+
+      - name: Write script with Claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          mkdir -p output
+          DATE=$(date +%F)
+          TARGET_CHARS=$(python3 -c "import yaml; c=yaml.safe_load(open('config.yaml')); print(round(c['podcast_length_minutes']*c.get('chars_per_minute',570)))")
+          cat /tmp/topics.json | claude -p "Du bist Autor eines deutschsprachigen News-Podcasts. Die heutigen Themen kommen als JSON-Array über stdin (Felder: title, summary, link, category). Schreibe daraus einen zusammenhängenden Sprechtext fuer Text-to-Speech, Ziel ca. ${TARGET_CHARS} Zeichen (+/-10%): kurzes Intro (Begruessung, kurzer Ueberblick was kommt), pro Thema ein fluessig moderierter Absatz mit natuerlichen Uebergaengen (keine Ueberschriften, keine Aufzaehlungszeichen, keine Regieanweisungen in Klammern), kurzes Outro. Reiner Fliesstext ohne Markdown und ohne Emojis. Gib NUR den fertigen Sprechtext aus, keine Erklaerung davor oder danach." --permission-mode dontAsk > "output/script_${DATE}.txt"
+          echo "--- script preview ---"
+          head -c 500 "output/script_${DATE}.txt"
+
+      - name: Synthesize and upload
+        run: |
+          DATE=$(date +%F)
+          python3 main.py --script-file "output/script_${DATE}.txt"
