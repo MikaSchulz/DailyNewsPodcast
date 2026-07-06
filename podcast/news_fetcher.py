@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from urllib.parse import urlparse
 
 import feedparser
 
@@ -23,7 +24,8 @@ class Topic:
     link: str
     category: str
     rank: int = 0  # position within its source feed (0 = that outlet's top story)
-    source_count: int = 1  # how many configured feeds reported this same story
+    source_domain: str = ""  # e.g. "tagesschau.de" — which outlet this entry came from
+    source_count: int = 1  # how many DISTINCT outlets reported this same story
 
 
 def fetch_topics(config: dict) -> list[Topic]:
@@ -109,6 +111,7 @@ def _weighted_quotas(weights: dict[str, float], total: int) -> dict[str, int]:
 def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
     topics = []
     for url in urls:
+        domain = urlparse(url).netloc.removeprefix("www.")
         try:
             parsed = feedparser.parse(url)
             if parsed.bozo and not parsed.entries:
@@ -123,6 +126,7 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
                         link=entry.get("link", ""),
                         category=category,
                         rank=rank,
+                        source_domain=domain,
                     )
                 )
         except Exception as exc:
@@ -153,7 +157,7 @@ def _rank_and_dedup(candidates: list[Topic]) -> list[Topic]:
                 cluster.append(candidates[j])
 
         primary = min(cluster, key=lambda t: t.rank)
-        primary.source_count = len(cluster)
+        primary.source_count = len({t.source_domain for t in cluster})
         merged.append(primary)
 
     merged.sort(key=lambda t: (-t.source_count, t.rank))
