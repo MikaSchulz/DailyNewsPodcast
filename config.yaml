@@ -57,6 +57,9 @@ feeds:
     - https://rss.sueddeutsche.de/rss/Politik
     - https://www.faz.net/rss/aktuell/politik/
     - http://netzpolitik.org/feed/          # digital policy/rights, German
+    - https://www.welt.de/feeds/section/politik.rss
+    - https://www.n-tv.de/politik/rss
+    - https://www.mdr.de/nachrichten/deutschland/politik/index-rss.xml
   wirtschaft:
     - https://www.tagesschau.de/wirtschaft/index~rss2.xml
     - https://www.spiegel.de/wirtschaft/index.rss
@@ -65,6 +68,9 @@ feeds:
     - https://www.handelsblatt.com/contentexport/feed/schlagzeilen
     - http://feeds2.feedburner.com/businessinsider   # English, international angle
     - http://fortune.com/feed/                       # English, international angle
+    - https://www.n-tv.de/wirtschaft/rss
+    - https://www.welt.de/feeds/section/wirtschaft.rss
+    - https://www.capital.de/rss
   tech:
     - https://www.heise.de/rss/heise-atom.xml
     - https://rss.golem.de/rss.php?feed=RSS2.0
@@ -73,13 +79,21 @@ feeds:
     - https://techcrunch.com/feed/           # English
     - https://www.theverge.com/rss/index.xml # English
     - http://feeds.wired.com/wired/index     # English
+    - http://feeds.arstechnica.com/arstechnica/index  # English
+    - https://www.computerbase.de/rss/news.xml
+    - https://www.chip.de/rss/rss_topnews.xml
   welt:
     - https://www.tagesschau.de/ausland/index~rss2.xml
     - https://www.spiegel.de/ausland/index.rss
+    - https://feeds.bbci.co.uk/news/world/rss.xml   # English
+    - https://rss.dw.com/xml/rss-de-all
   sport:
     - https://www.tagesschau.de/sport/index~rss2.xml
     - https://www.spiegel.de/sport/index.rss
     - https://newsfeed.kicker.de/news/aktuell
+    - https://www.n-tv.de/sport/rss
+    - https://www.sportschau.de/index~rss2.xml
+    - https://rss.sueddeutsche.de/rss/Sport
   # Off by default (see categories: above) — set a weight > 0 to include.
   security:
     - https://krebsonsecurity.com/feed/
@@ -89,3 +103,7 @@ feeds:
     - http://www.theregister.co.uk/security/headlines.atom
     - https://www.wired.com/feed/security/rss
     - https://therecord.media/feed/
+    - https://www.heise.de/security/rss/news-atom.xml
+    - https://www.darkreading.com/rss.xml
+    - https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed/RSSNewsfeed_Presse_Veranstaltungen.xml  # BSI, official German gov agency
+    - https://wid.cert-bund.de/content/public/buergercert/rss  # CERT-Bund consumer warnings, official German gov

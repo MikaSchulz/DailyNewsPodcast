@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 # that outlets phrase very differently.
 DEDUP_SIMILARITY_THRESHOLD = 0.6
 
+# Title prefixes that mark sponsored posts or paywalled teasers rather than
+# actual news (e.g. Golem's "Anzeige:" ads, Heise's "heise+ |" paywall tag).
+AD_TITLE_PREFIXES = ("Anzeige:", "heise+ |")
+
 
 @dataclass
 class Topic:
@@ -117,11 +121,15 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
             if parsed.bozo and not parsed.entries:
                 logger.warning("Feed '%s' (%s) failed to parse: %s", category, url, parsed.bozo_exception)
                 continue
-            for rank, entry in enumerate(parsed.entries):
+            rank = 0
+            for entry in parsed.entries:
+                title = entry.get("title", "").strip()
+                if title.startswith(AD_TITLE_PREFIXES):
+                    continue
                 summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                 topics.append(
                     Topic(
-                        title=entry.get("title", "").strip(),
+                        title=title,
                         summary=_strip_html(summary).strip(),
                         link=entry.get("link", ""),
                         category=category,
@@ -129,6 +137,7 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
                         source_domain=domain,
                     )
                 )
+                rank += 1
         except Exception as exc:
             logger.warning("Could not fetch feed '%s' (%s): %s", category, url, exc)
     return topics
