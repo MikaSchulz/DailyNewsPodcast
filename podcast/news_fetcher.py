@@ -1,11 +1,19 @@
 """Pulls current headlines from configured RSS feeds and picks a topic set."""
 
 import logging
+import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 
 import feedparser
 
 logger = logging.getLogger(__name__)
+
+# How similar two (normalized) titles need to be to count as the same story
+# across sources. Tuned by hand — lower catches more duplicates but risks
+# merging unrelated stories with similar wording; higher misses duplicates
+# that outlets phrase very differently.
+DEDUP_SIMILARITY_THRESHOLD = 0.6
 
 
 @dataclass
@@ -14,6 +22,8 @@ class Topic:
     summary: str
     link: str
     category: str
+    rank: int = 0  # position within its source feed (0 = that outlet's top story)
+    source_count: int = 1  # how many configured feeds reported this same story
 
 
 def fetch_topics(config: dict) -> list[Topic]:
@@ -23,6 +33,11 @@ def fetch_topics(config: dict) -> list[Topic]:
     topics from that category, weight <= 0 excludes it). Slots are apportioned
     proportionally to weight; any slot a category can't fill (feed too short)
     is redistributed to categories that still have unpicked entries.
+
+    Within a category, candidates are deduplicated (same story reported by
+    multiple feeds is merged into one, with source_count tracking how many
+    outlets ran it) and ranked by source_count desc, then by rank asc (each
+    outlet's own editorial position — index 0 is that outlet's top story).
     """
     weights = {c: w for c, w in config["categories"].items() if w > 0}
     feeds_by_category = config["feeds"]
@@ -37,7 +52,8 @@ def fetch_topics(config: dict) -> list[Topic]:
         if not urls:
             logger.warning("No feed URLs configured for category '%s', skipping.", category)
             continue
-        per_category[category] = _fetch_category(category, urls)
+        candidates = _fetch_category(category, urls)
+        per_category[category] = _rank_and_dedup(candidates)
 
     if not any(per_category.values()):
         raise RuntimeError(
@@ -98,7 +114,7 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
             if parsed.bozo and not parsed.entries:
                 logger.warning("Feed '%s' (%s) failed to parse: %s", category, url, parsed.bozo_exception)
                 continue
-            for entry in parsed.entries:
+            for rank, entry in enumerate(parsed.entries):
                 summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                 topics.append(
                     Topic(
@@ -106,6 +122,7 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
                         summary=_strip_html(summary).strip(),
                         link=entry.get("link", ""),
                         category=category,
+                        rank=rank,
                     )
                 )
         except Exception as exc:
@@ -113,7 +130,39 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
     return topics
 
 
-def _strip_html(text: str) -> str:
-    import re
+def _rank_and_dedup(candidates: list[Topic]) -> list[Topic]:
+    """Merges near-duplicate titles (same story, multiple outlets) and sorts by relevance.
 
+    Relevance = reported by more sources first, then each outlet's own
+    editorial ranking (lower rank = closer to that outlet's top story).
+    """
+    merged: list[Topic] = []
+    used = [False] * len(candidates)
+    normalized = [_normalize_title(c.title) for c in candidates]
+
+    for i, topic in enumerate(candidates):
+        if used[i]:
+            continue
+        used[i] = True
+        cluster = [topic]
+        for j in range(i + 1, len(candidates)):
+            if used[j]:
+                continue
+            if SequenceMatcher(None, normalized[i], normalized[j]).ratio() >= DEDUP_SIMILARITY_THRESHOLD:
+                used[j] = True
+                cluster.append(candidates[j])
+
+        primary = min(cluster, key=lambda t: t.rank)
+        primary.source_count = len(cluster)
+        merged.append(primary)
+
+    merged.sort(key=lambda t: (-t.source_count, t.rank))
+    return merged
+
+
+def _normalize_title(title: str) -> str:
+    return re.sub(r"[^\w\s]", "", title.lower()).strip()
+
+
+def _strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text)
