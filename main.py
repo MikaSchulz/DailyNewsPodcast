@@ -48,7 +48,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Daily news podcast generator")
     parser.add_argument("--config", default="config.yaml", help="Path to config file (default: config.yaml)")
     parser.add_argument("--minutes", type=float, help="Override podcast_length_minutes for this run")
-    parser.add_argument("--num-topics", type=int, help="Override num_topics for this run")
+    parser.add_argument(
+        "--num-topics", type=int, help="Override the topic-count safety ceiling (num_topics) for this run"
+    )
     parser.add_argument(
         "--categories",
         help='Override category weights for this run, e.g. "politik:2,tech:1,wirtschaft:1"',

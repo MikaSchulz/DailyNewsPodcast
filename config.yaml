@@ -4,10 +4,10 @@
 # actual trigger lives in cron/Task Scheduler, see README.md).
 schedule_time: "06:30"
 
-# Category -> weight. Higher weight = proportionally more topics picked from
-# that category. Weight <= 0 (or omitted) excludes the category. Must match
-# keys under `feeds:` below. All overridable per run with --categories, see
-# README.md.
+# Category -> weight. Higher weight = proportionally more of the character
+# budget (see target_chars, derived below) goes to that category. Weight
+# <= 0 (or omitted) excludes the category. Must match keys under `feeds:`
+# below. All overridable per run with --categories, see README.md.
 categories:
   welt: 4        # Tagesgeschehen
   politik: 2
@@ -16,9 +16,22 @@ categories:
   security: 1
   sport: 1
 
-# How many topics to pick in total, apportioned across categories by weight.
-# Overridable per run with --num-topics.
-num_topics: 18
+# Safety ceiling on total topic count - NOT a target. Topics are actually
+# picked by filling the character budget (target_chars below), one at a
+# time in relevance order, until each category's share is used up; a topic
+# with a long, detailed source summary gets a bigger slice of the script
+# than a thin one-liner, so the real topic count varies by how much news
+# there actually is. This just stops that from running away in a pathological
+# case (e.g. every summary being unusually short). Overridable per run with
+# --num-topics (which also still works as a hard override if you want an
+# exact count).
+num_topics: 40
+
+# How many script characters to expect per character of RSS summary, used
+# only to estimate how many topics are needed to fill target_chars. Rough
+# and hand-tuned - if podcasts consistently come out short, raise this
+# (pulls in fewer, more padded topics); if they run long, lower it.
+summary_expansion_ratio: 6.0
 
 # Target podcast length in minutes. Drives the script-writer's target
 # character count (length * chars_per_minute). Overridable per run with
