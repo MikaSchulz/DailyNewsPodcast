@@ -18,16 +18,20 @@ categories:
 
 # How many topics to pick in total, apportioned across categories by weight.
 # Overridable per run with --num-topics.
-num_topics: 18
+num_topics: 24
 
 # Target podcast length in minutes. Drives the script-writer's target
 # character count (length * chars_per_minute). Overridable per run with
 # --minutes.
-podcast_length_minutes: 30
+podcast_length_minutes: 40
 
 # Speaking pace used to derive the target character count from the length
-# above. ~550-600 chars/minute is normal pace for German TTS voices.
-chars_per_minute: 570
+# above. Measured directly against tts.voice_name below at speaking_rate 1.0
+# (3000-char German sample -> 162s audio = ~1111 chars/min) — the commonly
+# cited "~570 chars/min" rule of thumb was way off for this voice and
+# produced podcasts at half the configured length. Re-measure and update
+# this if you change voice_name or speaking_rate.
+chars_per_minute: 1100
 
 anthropic:
   model: "claude-sonnet-5"
