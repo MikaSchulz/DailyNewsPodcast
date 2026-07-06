@@ -42,12 +42,20 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
+          set +e
           mkdir -p output
           DATE=$(date +%F)
           TARGET_CHARS=$(python3 -c "import yaml; c=yaml.safe_load(open('config.yaml')); print(round(c['podcast_length_minutes']*c.get('chars_per_minute',570)))")
-          cat /tmp/topics.json | claude -p "Du bist Autor eines deutschsprachigen News-Podcasts. Die heutigen Themen kommen als JSON-Array über stdin (Felder: title, summary, link, category). Schreibe daraus einen zusammenhängenden Sprechtext fuer Text-to-Speech, Ziel ca. ${TARGET_CHARS} Zeichen (+/-10%): kurzes Intro (Begruessung, kurzer Ueberblick was kommt), pro Thema ein fluessig moderierter Absatz mit natuerlichen Uebergaengen (keine Ueberschriften, keine Aufzaehlungszeichen, keine Regieanweisungen in Klammern), kurzes Outro. Reiner Fliesstext ohne Markdown und ohne Emojis. Gib NUR den fertigen Sprechtext aus, keine Erklaerung davor oder danach." --permission-mode dontAsk > "output/script_${DATE}.txt"
-          echo "--- script preview ---"
-          head -c 500 "output/script_${DATE}.txt"
+          claude --version
+          cat /tmp/topics.json | claude -p "Du bist Autor eines deutschsprachigen News-Podcasts. Die heutigen Themen kommen als JSON-Array über stdin (Felder: title, summary, link, category). Schreibe daraus einen zusammenhängenden Sprechtext fuer Text-to-Speech, Ziel ca. ${TARGET_CHARS} Zeichen (+/-10%): kurzes Intro (Begruessung, kurzer Ueberblick was kommt), pro Thema ein fluessig moderierter Absatz mit natuerlichen Uebergaengen (keine Ueberschriften, keine Aufzaehlungszeichen, keine Regieanweisungen in Klammern), kurzes Outro. Reiner Fliesstext ohne Markdown und ohne Emojis. Gib NUR den fertigen Sprechtext aus, keine Erklaerung davor oder danach." --permission-mode dontAsk > "output/script_${DATE}.txt" 2> /tmp/claude_stderr.log
+          CLAUDE_EXIT=$?
+          echo "=== claude exit code: $CLAUDE_EXIT ==="
+          echo "=== stderr ==="
+          cat /tmp/claude_stderr.log
+          echo "=== stdout (script file, first 1000 chars) ==="
+          head -c 1000 "output/script_${DATE}.txt"
+          echo
+          exit $CLAUDE_EXIT
 
       - name: Synthesize and upload
         run: |
