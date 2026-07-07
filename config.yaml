@@ -33,6 +33,14 @@ num_topics: 40
 # (pulls in fewer, more padded topics); if they run long, lower it.
 summary_expansion_ratio: 6.0
 
+# Only consider RSS entries published within this many hours. Deliberately
+# a bit under 24h so there's a real gap to whatever yesterday's run already
+# covered, instead of two runs' 24h windows overlapping at the edge (e.g. if
+# a run fires a little early or a feed's timestamp is slightly off). Raise
+# this if a category's feeds post infrequently and you're running short on
+# topics; lower it for a tighter same-day-only feel.
+max_age_hours: 23
+
 # Target podcast length in minutes. Drives the script-writer's target
 # character count (length * chars_per_minute). Overridable per run with
 # --minutes.

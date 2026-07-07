@@ -1,7 +1,9 @@
 """Pulls current headlines from configured RSS feeds and picks a topic set."""
 
+import calendar
 import logging
 import re
+import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from urllib.parse import urlparse
@@ -31,6 +33,12 @@ MIN_SUMMARY_WEIGHT = 30
 # come out short, raise it (pulls in fewer, more padded-out topics); if
 # they come out long, lower it.
 SUMMARY_EXPANSION_RATIO = 6.0
+
+# Only include entries published within this many hours. Deliberately a bit
+# under 24h so there's a real gap to whatever the previous day's run already
+# covered, instead of the two runs' 24h windows butting up edge-to-edge (or
+# overlapping, if this run happens to fire a little early).
+MAX_AGE_HOURS_DEFAULT = 23
 
 
 @dataclass
@@ -70,6 +78,7 @@ def fetch_topics(config: dict) -> list[Topic]:
     max_topics = config["num_topics"]
     target_chars = config["target_chars"]
     expansion_ratio = config.get("summary_expansion_ratio", SUMMARY_EXPANSION_RATIO)
+    max_age_hours = config.get("max_age_hours", MAX_AGE_HOURS_DEFAULT)
 
     if not weights:
         raise RuntimeError("No category in config.yaml has a positive weight.")
@@ -80,7 +89,7 @@ def fetch_topics(config: dict) -> list[Topic]:
         if not urls:
             logger.warning("No feed URLs configured for category '%s', skipping.", category)
             continue
-        candidates = _fetch_category(category, urls)
+        candidates = _fetch_category(category, urls, max_age_hours)
         per_category[category] = _rank_and_dedup(candidates)
 
     if not any(per_category.values()):
@@ -145,7 +154,7 @@ def _weighted_quotas(weights: dict[str, float], total: int) -> dict[str, int]:
     return quotas
 
 
-def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
+def _fetch_category(category: str, urls: list[str], max_age_hours: float) -> list[Topic]:
     topics = []
     for url in urls:
         domain = urlparse(url).netloc.removeprefix("www.")
@@ -156,6 +165,9 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
                 continue
             rank = 0
             for entry in parsed.entries:
+                age_hours = _entry_age_hours(entry)
+                if age_hours is not None and age_hours > max_age_hours:
+                    continue
                 title = entry.get("title", "").strip()
                 if title.startswith(AD_TITLE_PREFIXES):
                     continue
@@ -174,6 +186,20 @@ def _fetch_category(category: str, urls: list[str]) -> list[Topic]:
         except Exception as exc:
             logger.warning("Could not fetch feed '%s' (%s): %s", category, url, exc)
     return topics
+
+
+def _entry_age_hours(entry) -> float | None:
+    """Hours since the entry's published/updated timestamp, or None if it has neither.
+
+    Entries with no parseable date are kept (not excluded) - better to include
+    genuinely fresh content that a feed just failed to timestamp than to
+    silently drop it.
+    """
+    struct = entry.get("published_parsed") or entry.get("updated_parsed")
+    if not struct:
+        return None
+    published_epoch = calendar.timegm(struct)
+    return (time.time() - published_epoch) / 3600
 
 
 def _rank_and_dedup(candidates: list[Topic]) -> list[Topic]:
