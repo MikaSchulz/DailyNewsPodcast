@@ -17,6 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restore topic history (avoids repeating recent stories)
+        uses: actions/cache@v4
+        with:
+          path: .topic_history.json
+          key: topic-history-${{ github.run_id }}
+          restore-keys: |
+            topic-history-
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

@@ -1,7 +1,9 @@
 """Pulls current headlines from configured RSS feeds and picks a topic set."""
 
 import calendar
+import json
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -40,6 +42,13 @@ SUMMARY_EXPANSION_RATIO = 6.0
 # overlapping, if this run happens to fire a little early).
 MAX_AGE_HOURS_DEFAULT = 23
 
+# How long a topic stays in the "already covered" history before it's
+# forgotten and eligible to be picked again (e.g. if a story keeps
+# developing over several days, it can resurface once it drops out of
+# this window). Independent of max_age_hours — this is about not repeating
+# a topic already discussed, not about how fresh a story is.
+HISTORY_RETENTION_HOURS_DEFAULT = 72
+
 
 @dataclass
 class Topic:
@@ -72,6 +81,11 @@ def fetch_topics(config: dict) -> list[Topic]:
     multiple feeds is merged into one, with source_count tracking how many
     outlets ran it) and ranked by source_count desc, then by rank asc (each
     outlet's own editorial position — index 0 is that outlet's top story).
+
+    Topics already covered in a recent run (config["history_path"], within
+    config["history_retention_hours"]) are excluded via the same fuzzy
+    title match used for cross-source dedup, so the same story doesn't run
+    again the next day or two just because it's still sitting in a feed.
     """
     weights = {c: w for c, w in config["categories"].items() if w > 0}
     feeds_by_category = config["feeds"]
@@ -79,9 +93,14 @@ def fetch_topics(config: dict) -> list[Topic]:
     target_chars = config["target_chars"]
     expansion_ratio = config.get("summary_expansion_ratio", SUMMARY_EXPANSION_RATIO)
     max_age_hours = config.get("max_age_hours", MAX_AGE_HOURS_DEFAULT)
+    history_path = config.get("history_path", ".topic_history.json")
+    history_retention_hours = config.get("history_retention_hours", HISTORY_RETENTION_HOURS_DEFAULT)
 
     if not weights:
         raise RuntimeError("No category in config.yaml has a positive weight.")
+
+    history = _load_history(history_path, history_retention_hours)
+    history_titles_normalized = [_normalize_title(e["title"]) for e in history]
 
     per_category: dict[str, list[Topic]] = {}
     for category in weights:
@@ -89,7 +108,7 @@ def fetch_topics(config: dict) -> list[Topic]:
         if not urls:
             logger.warning("No feed URLs configured for category '%s', skipping.", category)
             continue
-        candidates = _fetch_category(category, urls, max_age_hours)
+        candidates = _fetch_category(category, urls, max_age_hours, history_titles_normalized)
         per_category[category] = _rank_and_dedup(candidates)
 
     if not any(per_category.values()):
@@ -129,6 +148,7 @@ def fetch_topics(config: dict) -> list[Topic]:
         i += 1
 
     _assign_target_lengths(picked, target_chars)
+    _save_history(history_path, history, picked)
     return picked
 
 
@@ -154,7 +174,9 @@ def _weighted_quotas(weights: dict[str, float], total: int) -> dict[str, int]:
     return quotas
 
 
-def _fetch_category(category: str, urls: list[str], max_age_hours: float) -> list[Topic]:
+def _fetch_category(
+    category: str, urls: list[str], max_age_hours: float, history_titles_normalized: list[str]
+) -> list[Topic]:
     topics = []
     for url in urls:
         domain = urlparse(url).netloc.removeprefix("www.")
@@ -171,6 +193,8 @@ def _fetch_category(category: str, urls: list[str], max_age_hours: float) -> lis
                 title = entry.get("title", "").strip()
                 if title.startswith(AD_TITLE_PREFIXES):
                     continue
+                if _already_covered(title, history_titles_normalized):
+                    continue
                 summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                 topics.append(
                     Topic(
@@ -186,6 +210,42 @@ def _fetch_category(category: str, urls: list[str], max_age_hours: float) -> lis
         except Exception as exc:
             logger.warning("Could not fetch feed '%s' (%s): %s", category, url, exc)
     return topics
+
+
+def _already_covered(title: str, history_titles_normalized: list[str]) -> bool:
+    normalized = _normalize_title(title)
+    return any(
+        SequenceMatcher(None, normalized, seen).ratio() >= DEDUP_SIMILARITY_THRESHOLD
+        for seen in history_titles_normalized
+    )
+
+
+def _load_history(path: str, retention_hours: float) -> list[dict]:
+    if not path or not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            entries = json.load(f)
+    except Exception as exc:
+        logger.warning("Could not read topic history at '%s': %s", path, exc)
+        return []
+    cutoff = time.time() - retention_hours * 3600
+    return [e for e in entries if e.get("covered_at", 0) >= cutoff]
+
+
+def _save_history(path: str, history: list[dict], newly_picked: list[Topic]) -> None:
+    if not path:
+        return
+    now = time.time()
+    updated = history + [{"title": t.title, "covered_at": now} for t in newly_picked]
+    try:
+        dirname = os.path.dirname(path)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(updated, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        logger.warning("Could not write topic history to '%s': %s", path, exc)
 
 
 def _entry_age_hours(entry) -> float | None:
