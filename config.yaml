@@ -41,6 +41,18 @@ summary_expansion_ratio: 6.0
 # topics; lower it for a tighter same-day-only feel.
 max_age_hours: 23
 
+# Where the "topics already covered" history file lives. Written after every
+# run, read at the start of the next one to skip anything already in it (see
+# history_retention_hours) - keeps a slow-developing story from getting a
+# full segment two days running. In GitHub Actions this path is restored/
+# saved via actions/cache (see daily-podcast.yml); locally it's just a file
+# next to this config.
+history_path: ".topic_history.json"
+
+# How long a topic stays in that history before it's forgotten and eligible
+# to be picked again.
+history_retention_hours: 72
+
 # Target podcast length in minutes. Drives the script-writer's target
 # character count (length * chars_per_minute). Overridable per run with
 # --minutes.
